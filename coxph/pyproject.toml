@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "coxph"
+version = "0.1.0"
+description = ""
+authors = ["Ukhatov Alexander <uhatov007@yandex.ru>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^1.5.3"
+lifelines = "^0.27.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
