@@ -1,9 +1,12 @@
 
+import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
 
-if __name__ == "__main__":
+import matplotlib.pyplot as plt
 
+
+def perform_coxph():
     # read in the clinical data
     clinical_df = pd.read_csv('data/lgg_clinical_with_rows.csv', index_col=0)
     clinical_df["index_for_merge"] = clinical_df.index
@@ -12,17 +15,17 @@ if __name__ == "__main__":
     mutation_df = pd.read_csv('data/lgg_mutation_with_rows.csv', index_col=0)
     mutation_df["index_for_merge"] = mutation_df["Tumor_Sample_Barcode"].apply(lambda x: x[:12].replace(
         "-", ".").lower())
+
+    mutation_df = mutation_df[mutation_df['Hugo_Symbol'] == 'IDH1']
+
     # Merge clinical and mutation data based on sample IDs
     lgg_idh1_data = pd.merge(clinical_df, mutation_df,
-                             left_on='index_for_merge', right_on='index_for_merge')
+                             left_on='index_for_merge', right_on='index_for_merge', how="outer")
     lgg_idh1_data.index = lgg_idh1_data["index_for_merge"]
 
-    # filter IDH1 Hugo_Symbol
-    lgg_idh1_data = lgg_idh1_data[lgg_idh1_data['Hugo_Symbol'] == 'IDH1']
-
     # silent mutation or not
-    # lgg_idh1_data['harmful'] = lgg_idh1_data["Variant_Classification"].apply(
-    #     lambda x: 1 if x != 'Silent' else 0)
+    lgg_idh1_data['IDH1'] = lgg_idh1_data["Variant_Classification"].apply(
+        lambda x: 1 if type(x) == str and x != "Silent" else 0)
 
     # specify gender: male = 1, female = 2
     lgg_idh1_data['gender'] = lgg_idh1_data["gender"].apply(
@@ -45,7 +48,7 @@ if __name__ == "__main__":
 
     # Select relevant columns for analysis
     selected_columns = ['years_to_birth', 'vital_status', "gender", "radiation_therapy",
-                        'duration_col', 'histological_type', 'race']  # 'harmful', "Hugo_Symbol"
+                        'duration_col', 'histological_type', 'race', 'IDH1']
 
     # 'karnofsky_performance_score' -- too many NaNs
     lgg_idh1_data = lgg_idh1_data[selected_columns]
@@ -66,5 +69,34 @@ if __name__ == "__main__":
             event_col='vital_status')
 
     # Print summary of fitted model
-    print(cph.summary)
+    # print(cph.summary)
     cph.summary.to_csv("result.csv")
+
+    # PLOTING
+    # plot the survival function
+    # plot the survival function for the age variable
+    fig, ax = plt.subplots()
+    cph.plot_partial_effects_on_outcome(
+        'years_to_birth', [20, 30, 40, 50, 60, 70], cmap='coolwarm', ax=ax)
+    ax.set_xlabel('Overal survival (days)')
+    ax.set_ylabel('Survival Probability')
+    ax.set_title('Survival Function for Age')
+    plt.tight_layout()
+
+    # save the plot as a PNG file
+    fig.savefig('survival_function_years.png')
+
+    fig, ax = plt.subplots()
+    cph.plot_partial_effects_on_outcome(
+        'IDH1', [0, 1], cmap='coolwarm', ax=ax)
+    ax.set_xlabel('Overal survival (days)')
+    ax.set_ylabel('Survival Probability')
+    ax.set_title('Survival Function for Age')
+    plt.tight_layout()
+
+    # save the plot as a PNG file
+    fig.savefig('survival_function_idh1.png')
+
+
+if __name__ == "__main__":
+    perform_coxph()
