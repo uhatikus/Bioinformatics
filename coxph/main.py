@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from lifelines import CoxPHFitter
@@ -53,12 +52,12 @@ def perform_coxph():
     # 'karnofsky_performance_score' -- too many NaNs
     lgg_idh1_data = lgg_idh1_data[selected_columns]
 
-    print(list(pd.factorize(
-        lgg_idh1_data['histological_type'])[1]))
-    # 'astrocytoma' : 0, 'oligoastrocytoma' : 1, 'oligodendroglioma' : 2
-    lgg_idh1_data['histological_type'] = pd.factorize(
-        lgg_idh1_data['histological_type'])[0]
+    dummy_vars = pd.get_dummies(
+        lgg_idh1_data[['histological_type']], drop_first=True)
+    lgg_idh1_data = pd.concat([lgg_idh1_data, dummy_vars], axis=1)
+    lgg_idh1_data.drop(['histological_type'], axis=1, inplace=True)
 
+    # lgg_idh1_data.to_csv("data/processed.csv")
     # Drop rows with missing values
     lgg_idh1_data = lgg_idh1_data.dropna()
     lgg_idh1_data.to_csv("data/processed.csv")
@@ -77,7 +76,7 @@ def perform_coxph():
     # plot the survival function for the age variable
     fig, ax = plt.subplots()
     cph.plot_partial_effects_on_outcome(
-        'years_to_birth', [20, 30, 40, 50, 60, 70], cmap='coolwarm', ax=ax)
+        'years_to_birth', [-10, 0, 10, 20, 30, 40, 50, 60, 70, 100, 120, 150], cmap='coolwarm', ax=ax, plot_baseline=False)
     ax.set_xlabel('Overal survival (days)')
     ax.set_ylabel('Survival Probability')
     ax.set_title('Survival Function for Age')
@@ -88,15 +87,38 @@ def perform_coxph():
 
     fig, ax = plt.subplots()
     cph.plot_partial_effects_on_outcome(
-        'IDH1', [0, 1], cmap='coolwarm', ax=ax)
+        'IDH1', [0, 1], cmap='coolwarm', ax=ax, plot_baseline=False)
     ax.set_xlabel('Overal survival (days)')
     ax.set_ylabel('Survival Probability')
-    ax.set_title('Survival Function for Age')
+    ax.set_title('Survival Function for IDH1')
     plt.tight_layout()
 
     # save the plot as a PNG file
     fig.savefig('survival_function_idh1.png')
 
+    fig, ax = plt.subplots()
+    cph.plot_partial_effects_on_outcome(
+        'gender', [1, 2], cmap='coolwarm', ax=ax, plot_baseline=False)
+    ax.set_xlabel('Overal survival (days)')
+    ax.set_ylabel('Survival Probability')
+    ax.set_title('Survival Function for gender')
+    plt.tight_layout()
+
+    # save the plot as a PNG file
+    fig.savefig('survival_function_gender.png')
+
 
 if __name__ == "__main__":
     perform_coxph()
+
+    # try on 4-10 people
+    # make a graph look normal
+
+    # mutations -> each of them: how affects mortality. & together: how affects mortality
+    # gene expression (?)
+
+    # DNA variant
+    # полиморфизм: >1% людей
+    # мутация: <1% людей
+    # HENG LI: читать (математика за ДНК, алгоримитка, etc)
+    # microarray chip:
