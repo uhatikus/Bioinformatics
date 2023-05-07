@@ -10,12 +10,12 @@ class CoxPH():
     def __init__(self, clinical_file_path: str, mutation_file_path: str, results_path: str) -> None:
         # read in the clinical data
         self.clinical_df = pd.read_csv(
-            'data/lgg_clinical_with_rows.csv', index_col=0)
+            clinical_file_path, index_col=0)
         self.clinical_df["index_for_merge"] = self.clinical_df.index
 
         # read in the mutation data
         self.mutation_df = pd.read_csv(
-            'data/lgg_mutation_with_rows.csv', index_col=0)
+            mutation_file_path, index_col=0)
         self.mutation_df["index_for_merge"] = self.mutation_df["Tumor_Sample_Barcode"].apply(lambda x: x[:12].replace(
             "-", ".").lower())
 
@@ -83,11 +83,13 @@ class CoxPH():
         if 'histological_type' in covariats:
             dummy_vars = pd.get_dummies(
                 # histological_type
-                preprocessed_clinical_data[['histological_type']], drop_first=True)
+                preprocessed_clinical_data[['histological_type']])
             preprocessed_clinical_data = pd.concat(
                 [preprocessed_clinical_data, dummy_vars], axis=1)
             preprocessed_clinical_data.drop(
                 ['histological_type'], axis=1, inplace=True)
+            preprocessed_clinical_data.drop(
+                ["histological_type_oligoastrocytoma"], axis=1, inplace=True)
 
         return preprocessed_clinical_data
 
@@ -98,6 +100,10 @@ class CoxPH():
 
         cur_mutation_df.dropna(inplace=True)
         # silent mutation or not
+        # Variant_Classification:
+        # 1. Missence
+        # 2. PTV = Frame_shift, Nonsence, Splice site
+        # Others -- not used
         cur_mutation_df[gene] = cur_mutation_df["Variant_Classification"].apply(
             lambda x: 1 if x != "Silent" else 0)
         cur_mutation_df.drop(
@@ -167,13 +173,12 @@ class CoxPH():
             self.plot_survival_function(cur_data, target_column="radiation_therapy", options=[
                 (1, "yes"), (0, "no"), ])
 
-    def analize_genes_togather(self, genes: list[str], covariats: list[str] = None):
+    def analize_genes_together(self, genes: list[str], covariats: list[str] = None):
         cur_data = self.preprocess_clinical_data_using_covariats(
             covariats)
         for gene in genes:
             clean_mutation_data_for_current_gene = self.preprocess_mutation_data_with_gene(
                 gene)
-
             # Merge clinical and mutation data for current gene
             cur_data = pd.merge(cur_data, clean_mutation_data_for_current_gene,
                                 left_on='index_for_merge', right_on='index_for_merge', how="outer")
@@ -181,7 +186,8 @@ class CoxPH():
             cur_data.drop(columns=["index_for_merge"], inplace=True)
 
             # of no gene mutation for the current gene and patient, then 0
-            cur_data[gene].fillna(0, inplace=True)
+            if gene in cur_data.columns:
+                cur_data[gene].fillna(0, inplace=True)
 
             # drop nans
             cur_data.dropna(inplace=True)
@@ -199,30 +205,124 @@ class CoxPH():
         cph.summary[cph.summary['p'] < 0.05].to_csv(
             self.results_path+f"significant_covariants_and_genes.csv")
 
-    def analize_genes(self, genes: list[str], covariats: list[str] = None):
+    def analize_genes_together_with_ATRX(self, genes: list[str], covariats: list[str] = None, target_gene: str = "ATRX"):
+        cur_data = self.preprocess_clinical_data_using_covariats(
+            covariats)
+        for gene in genes:
+            clean_mutation_data_for_current_gene = self.preprocess_mutation_data_with_gene(
+                gene)
+            # Merge clinical and mutation data for current gene
+            cur_data = pd.merge(cur_data, clean_mutation_data_for_current_gene,
+                                left_on='index_for_merge', right_on='index_for_merge', how="outer")
+            cur_data.index = cur_data["index_for_merge"]
+            cur_data.drop(columns=["index_for_merge"], inplace=True)
+
+            # of no gene mutation for the current gene and patient, then 0
+            if gene in cur_data.columns:
+                cur_data[gene].fillna(0, inplace=True)
+
+            # drop nans
+            cur_data.dropna(inplace=True)
+
+        print("ready for CoxPH")
+
+        for cov in cur_data.columns:
+            if cov == target_gene or cov == 'duration_col' or cov == 'vital_status':
+                continue
+            cur_data_i = cur_data.drop(columns=[cov])
+
+            cph = CoxPHFitter()
+            cph.fit(cur_data_i, duration_col='duration_col',
+                    event_col='vital_status')
+            # Save summary of fitted model
+            cph.summary.to_csv(self.results_path +
+                               f"result_all_genes_without_{cov}.csv")
+
+            if target_gene in cph.summary[cph.summary['p'] < 0.05].index:
+                print(f"If {cov} in covariates, then {target_gene} has p < 0.05")
+            else:
+                print(
+                    f"If {cov} in covariates, then {target_gene} DOES NOT HAVE p < 0.05")
+
+    def valid_covariats(self, covariats: list[str]):
         if covariats is None:
-            covariats = self.default_covariats
+            return self.default_covariats
         else:
             for cov in covariats:
                 if cov not in self.default_covariats:
                     raise Exception(
                         f"{cov} is not possible covariant for the current dataset")
+        return covariats
+
+    def analize_genes(self, genes: list[str], covariats: list[str] = None, target_gene: str = None):
+        covariats = self.valid_covariats(covariats)
+
+        good_genes = []
+        bad_genes = []
         for gene in genes:
             # len(genes) == 1
-            self.analize_gene(gene, covariats, plot_flag=True)
+            try:
+                self.analize_gene(gene, covariats, plot_flag=False)
+                good_genes.append(gene)
+            except:
+                # print(f"Gene {gene} gives an error => cannot be calculated")
+                bad_genes.append(gene)
+        print(f"Unprocessed gense: {bad_genes}")
 
-        self.analize_genes_togather(genes, covariats)
+        self.analize_genes_together(good_genes, covariats)
+
+        if target_gene is not None:
+            self.analize_genes_together_with_ATRX(
+                good_genes, covariats, target_gene)
+
+    def analyze_genes_sum_effect(self, genes: list[str], covariats: list[str] = None):
+        covariats = self.valid_covariats(covariats)
+        cur_data = self.preprocess_clinical_data_using_covariats(
+            covariats)
+        present_genes = []
+        bad_genes = []
+        for gene in genes:
+            clean_mutation_data_for_current_gene = self.preprocess_mutation_data_with_gene(
+                gene)
+            if clean_mutation_data_for_current_gene.empty:
+                # print(
+                #     f'gene {gene} does not present in the current coxph dataset')
+                bad_genes.append(gene)
+                continue
+            # Merge clinical and mutation data for current gene
+            cur_data = pd.merge(cur_data, clean_mutation_data_for_current_gene,
+                                left_on='index_for_merge', right_on='index_for_merge', how="outer")
+
+            cur_data.index = cur_data["index_for_merge"]
+            cur_data.drop(columns=["index_for_merge"], inplace=True)
+            if gene in cur_data.columns:
+                cur_data[gene].fillna(0, inplace=True)
+                present_genes.append(gene)
+            else:
+                print(
+                    f'gene {gene} does not present in the current coxph dataset !!!!!!')
+
+        cur_data["mutation effect"] = cur_data[present_genes].sum(axis=1)
+        cur_data.dropna(inplace=True)
+        cur_data.to_csv(self.results_path+"data_sum_of_mutations.csv")
+        cur_data.drop(columns=present_genes, inplace=True)
+
+        print("ready for CoxPH")
+
+        cph = CoxPHFitter()
+        cph.fit(cur_data, duration_col='duration_col',
+                event_col='vital_status')
+
+        print("CoxPH fitted")
+        # Save summary of fitted model
+        cph.summary.to_csv(self.results_path+f"result_sum_of_mutations.csv")
+
+        self.plot_survival_function(cur_data, target_column="mutation effect", options=[
+            (2, f"2 mutations"), (1, f"1 mutation"), (0, f"No mutation")])
+        # print(f"bad genes: {bad_genes}")
 
 
 if __name__ == "__main__":
-    coxph = CoxPH(clinical_file_path='../data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='../data/lgg_mutation_with_rows.csv',
-                  results_path='results/')
-
-    gene_counts = coxph.mutation_df["Hugo_Symbol"].value_counts()
-    mask = coxph.mutation_df['Hugo_Symbol'].isin(
-        gene_counts[gene_counts < 20].index)
-    unique_genes = coxph.mutation_df[~mask]["Hugo_Symbol"].unique()
-    genes = ["IDH1", "NOS1"]
-    genes = ["DNAH8"]
-    coxph.analize_genes(unique_genes)
+    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
+                  mutation_file_path='data/lgg_mutation_with_rows.csv',
+                  results_path='sum_of_mutations_results/')
