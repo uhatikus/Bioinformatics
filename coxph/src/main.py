@@ -1,18 +1,20 @@
 from coxph import CoxPH
 
+root_folder = 'coxph/'
+
 
 def test_one_gene(gene):
-    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='data/lgg_mutation_with_rows.csv',
-                  results_path=f'{gene}/')
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/lgg/lgg_clinical_with_rows.csv',
+                  mutation_file_path=f'{root_folder}data/lgg/lgg_mutation_with_rows.csv',
+                  results_path=f'results/one_gene/{gene}/')
     coxph.analize_genes([gene])
 
 
 def test_unique_genes_from_dataset():
     MIN_NUMBER_OF_ENTRIES = 20
-    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='data/lgg_mutation_with_rows.csv',
-                  results_path='unique_genes_results/')
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/lgg/lgg_clinical_with_rows.csv',
+                  mutation_file_path=f'{root_folder}data/lgg/lgg_mutation_with_rows.csv',
+                  results_path=f'{root_folder}results/unique_genes_results/')
 
     gene_counts = coxph.mutation_df["Hugo_Symbol"].value_counts()
     mask = coxph.mutation_df['Hugo_Symbol'].isin(
@@ -24,9 +26,9 @@ def test_unique_genes_from_dataset():
 
 def test_unique_genes_from_dataset_and_analyze_gene(target_gene="ATRX"):
     MIN_NUMBER_OF_ENTRIES = 20
-    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='data/lgg_mutation_with_rows.csv',
-                  results_path=f'unique_genes_with_{target_gene}_results/')
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/lgg/lgg_clinical_with_rows.csv',
+                  mutation_file_path=f'{root_folder}data/lgg/lgg_mutation_with_rows.csv',
+                  results_path=f'{root_folder}results/unique_genes_with_{target_gene}_results/')
 
     gene_counts = coxph.mutation_df["Hugo_Symbol"].value_counts()
     mask = coxph.mutation_df['Hugo_Symbol'].isin(
@@ -38,9 +40,9 @@ def test_unique_genes_from_dataset_and_analyze_gene(target_gene="ATRX"):
 
 
 def test_genes_from_file(file_path: str):  # 'lgg_genes_module.txt'
-    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='data/lgg_mutation_with_rows.csv',
-                  results_path=f'{file_path.split("/")[-1].split(".")[0]}_results/')
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/lgg/lgg_clinical_with_rows.csv',
+                  mutation_file_path=f'{root_folder}data/lgg/lgg_mutation_with_rows.csv',
+                  results_path=f'{root_folder}results/{file_path.split("/")[-1].split(".")[0]}_results/')
 
     with open(file_path, 'r') as file:
         genes = set([gene.strip() for gene in file.readlines()])
@@ -63,13 +65,13 @@ def display_candidates(genes, genes_from_file, unique_genes_from_datatset):
 
 
 def test_sum_mutations():
-    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='data/lgg_mutation_with_rows.csv',
-                  results_path='sum_of_mutations_results/')
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/lgg/lgg_clinical_with_rows.csv',
+                  mutation_file_path=f'{root_folder}data/lgg/lgg_mutation_with_rows.csv',
+                  results_path=f'{root_folder}results/sum_of_mutations_results/')
 
     unique_genes_from_datatset = set(
         coxph.mutation_df["Hugo_Symbol"].unique())
-    with open('lgg_genes_module.txt', 'r') as file:
+    with open(f'{root_folder}given_files/lgg_genes_module.txt', 'r') as file:
         genes_from_file = set([gene.strip() for gene in file.readlines()])
     print(
         f"Not present in the current dataset: {genes_from_file-unique_genes_from_datatset}")
@@ -80,10 +82,22 @@ def test_sum_mutations():
     display_candidates(genes, genes_from_file, unique_genes_from_datatset)
 
 
+def skcm_analysis():
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/skcm/skcm_clinical_with_rows.csv',
+                  mutation_file_path=f'{root_folder}data/skcm/skcm_mutation_with_rows.csv',
+                  results_path=f'{root_folder}results/skcm_results/', skip_mutations=True)
+
+    with open(f'{root_folder}given_files/skcm_atm_mis_ptv_indiv.txt', 'r') as file:
+        people = [gene.strip() for gene in file.readlines()]
+
+    coxph.analyze_by_two_groups(defined_group=people, covariats=[
+        "gender", 'years_to_birth'])  # , 'stage', 'grade'
+
+
 if __name__ == "__main__":
     print("let's start")
-    test_sum_mutations()
-    # test_unique_genes_from_dataset_and_analyze_gene()
+    skcm_analysis()
+
 
 # updated TODO:
 # 1. ATRX and NF1 literature study.
@@ -149,3 +163,17 @@ if __name__ == "__main__":
 # if 1 "born" mutation => 2 somatic mutations (cancer earlier)
 # gene ATM.
 # is there a signature of gene expression if there is a mutation in gene ATM?
+
+
+# TODO:
+# https://pubmed.ncbi.nlm.nih.gov/35740680/
+
+# TODO:
+# 1. T-test
+# 2. log_2 (average(vector group 1))/average(vector group 2))
+# some genes will have low p-value
+# 3. pathway: http://www.pantherdb.org/
+
+# микроокружение опохули влияет или нет?
+
+# https://www.nature.com/articles/s41467-022-31436-8

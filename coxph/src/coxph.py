@@ -7,17 +7,20 @@ import matplotlib.pyplot as plt
 
 
 class CoxPH():
-    def __init__(self, clinical_file_path: str, mutation_file_path: str, results_path: str) -> None:
+    def __init__(self, clinical_file_path: str, mutation_file_path: str, results_path: str, skip_mutations: bool = False) -> None:
         # read in the clinical data
         self.clinical_df = pd.read_csv(
             clinical_file_path, index_col=0)
         self.clinical_df["index_for_merge"] = self.clinical_df.index
 
+        self.skip_mutations = skip_mutations
+
         # read in the mutation data
-        self.mutation_df = pd.read_csv(
-            mutation_file_path, index_col=0)
-        self.mutation_df["index_for_merge"] = self.mutation_df["Tumor_Sample_Barcode"].apply(lambda x: x[:12].replace(
-            "-", ".").lower())
+        if not self.skip_mutations:
+            self.mutation_df = pd.read_csv(
+                mutation_file_path, index_col=0)
+            self.mutation_df["index_for_merge"] = self.mutation_df["Tumor_Sample_Barcode"].apply(lambda x: x[:12].replace(
+                "-", ".").lower())
 
         self.validate_data()
 
@@ -39,7 +42,8 @@ class CoxPH():
         validate(self.clinical_df, ['vital_status',
                                     'days_to_death', 'days_to_last_followup'])
 
-        validate(self.mutation_df, ['Variant_Classification'])
+        if not self.skip_mutations:
+            validate(self.mutation_df, ['Variant_Classification'])
 
     def update_default_covariats(self):
         new_default_covariats = []
@@ -321,8 +325,30 @@ class CoxPH():
             (2, f"2 mutations"), (1, f"1 mutation"), (0, f"No mutation")])
         # print(f"bad genes: {bad_genes}")
 
+    def analyze_by_two_groups(self, defined_group: list[str], covariats: list[str] = None):
+        covariats = self.valid_covariats(covariats)
+        cur_data = self.preprocess_clinical_data_using_covariats(
+            covariats)
+        defined_group = [x[:12].replace("-", ".").lower()
+                         for x in defined_group]
+        cur_data['group_1'] = cur_data.index.isin(defined_group).astype(int)
+
+        cur_data.dropna(inplace=True)
+        cur_data.drop(columns=["index_for_merge"], inplace=True)
+
+        print(cur_data)
+        cph = CoxPHFitter()
+        cph.fit(cur_data, duration_col='duration_col',
+                event_col='vital_status')
+
+        cph.summary.to_csv(self.results_path+f"group_1.csv")
+
+        self.plot_survival_function(cur_data, target_column="group_1", options=[
+            (1, f"in group"), (0, f"Not in group")])
+        # print(f"bad genes: {bad_genes}")
+
 
 if __name__ == "__main__":
-    coxph = CoxPH(clinical_file_path='data/lgg_clinical_with_rows.csv',
-                  mutation_file_path='data/lgg_mutation_with_rows.csv',
-                  results_path='sum_of_mutations_results/')
+    coxph = CoxPH(clinical_file_path='coxph/data/lgg/lgg_clinical_with_rows.csv',
+                  mutation_file_path='coxph/data/lgg/lgg_mutation_with_rows.csv',
+                  results_path='coxph/results/some_results/')
