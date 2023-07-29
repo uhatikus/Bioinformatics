@@ -79,15 +79,15 @@ analyse_sample_data <- function(patient_data_, diff_exp_data_) {
 gene_list <- unlist(as.list(read_excel("gene_list.xlsx", col_names = FALSE)))
 tcga_data <- read.table("tcga_lgg_data.txt", header = TRUE, sep = "\t")
 # print(tcga_data)
-diff_exp_data <- read_excel("expression_data.xlsx", col_names = TRUE)
+diff_exp_data <- read_excel("expression_data.xlsx", col_names = TRUE, sheet = "res_MT_Progress.csv")
 # print(diff_exp_data)
 diff_exp_data <- diff_exp_data[!is.na(diff_exp_data[, 1]), ]
 diff_exp_data <- diff_exp_data[!is.na(diff_exp_data[, 2]), ]
 
-cutoff_values <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.65, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.8, 0.85, 0.9, 1)
+# cutoff_values <- c(0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.65, 0.7, 0.71, 0.72, 0.73, 0.74, 0.75, 0.8, 0.85, 0.9, 1)
 p_errors_matched <- c()
 p_errors_unmatched <- c()
-cutoff_values <- c(0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.65, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85) # , 0.9, 1
+cutoff_values <- c(0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.65, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1) #
 
 # cutoff_values <- c(0.7, 0.8)
 n_genes_unmatched <- c()
@@ -103,21 +103,22 @@ for (cutoff_value in cutoff_values) {
   ) # cutoff - the minimal fraction of genes with matching pattern within selected sample
   tcga_data_matched <- tcga_data[tcga_data$bcr_patient_barcode %in% matched_samples, ]
   errors_matched <- analyse_sample_data(tcga_data_matched, diff_exp_data)
-  p_error <- sum(errors_matched) / 80 / nrow(tcga_data_matched)
+  p_error <- sum(errors_matched) / ncol(errors_matched) / nrow(errors_matched)
   p_errors_matched <- c(p_errors_matched, p_error)
 
-  print(cutoff_value)
+  # print(cutoff_value)
+  print(length(matched_samples))
   strange_genes <- colnames(errors_matched[colSums(errors_matched) > 0.5 * nrow(errors_matched)])
   if (length(strange_genes) < 20) {
-    print(length(strange_genes))
-    print(gsub("median", "", strange_genes))
+    # print(length(strange_genes))
+    # print(gsub("median", "", strange_genes))
   }
   strange_people <- rownames(errors_matched[rowSums(errors_matched) > 0.5 * ncol(errors_matched), ])
-  print(length(strange_people) == 0)
+  # print(length(strange_people) == 0)
 
   tcga_data_unmatched <- tcga_data[!tcga_data$bcr_patient_barcode %in% matched_samples, ]
   errors_unmatched <- analyse_sample_data(tcga_data_unmatched, diff_exp_data)
-  p_error <- sum(errors_unmatched) / 80 / nrow(tcga_data_unmatched)
+  p_error <- sum(errors_unmatched) / ncol(errors_unmatched) / nrow(errors_unmatched)
   p_errors_unmatched <- c(p_errors_unmatched, p_error)
   n_genes_unmatched <- c(n_genes_unmatched, length(strange_genes))
 }
@@ -127,16 +128,16 @@ for (cutoff_value in cutoff_values) {
 #   labs(title = "Scatter Plot with Trend Line", x = "X", y = "Y") +
 #   theme_minimal()
 p <- ggplot() +
-  geom_point(data = data.frame(x = cutoff_values, y = n_genes_unmatched), aes(x = cutoff_values, y = n_genes_unmatched), color = "blue") +
-  # geom_point(data = data.frame(x = cutoff_values, y = p_errors_matched), aes(x = cutoff_values, y = p_errors_matched), color = "blue") +
-  # geom_point(data = data.frame(x = cutoff_values, y = p_errors_unmatched), aes(x = cutoff_values, y = p_errors_unmatched), color = "red") +
+  # geom_point(data = data.frame(x = cutoff_values, y = n_genes_unmatched), aes(x = cutoff_values, y = n_genes_unmatched), color = "blue") +
+  geom_point(data = data.frame(x = cutoff_values, y = p_errors_matched), aes(x = cutoff_values, y = p_errors_matched), color = "blue") +
+  geom_point(data = data.frame(x = cutoff_values, y = p_errors_unmatched), aes(x = cutoff_values, y = p_errors_unmatched), color = "red") +
   # geom_smooth(data = data.frame(x = cutoff_values, y = p_errors_matched), aes(x = cutoff_values, y = p_errors_matched), method = "lm", se = FALSE, color = "red", linetype = "dashed") +
   # geom_smooth(data = data.frame(x = cutoff_values, y = p_errors_unmatched), aes(x = cutoff_values, y = p_errors_unmatched), method = "lm", se = FALSE, color = "purple", linetype = "dashed") +
-  # labs(title = "Probability of Error vs Cut-off", x = "Cut-off value", y = "Probability of Error") +
-  labs(title = "Number of not matched genes vs Cut-off", x = "Cut-off value", y = "Number of not macthed genes ") +
-  # coord_cartesian(ylim = c(0, 1)) +
+  labs(title = "Probability of Error vs Cut-off", x = "Cut-off value", y = "Probability of Error") +
+  # labs(title = "Number of not matched genes vs Cut-off", x = "Cut-off value", y = "Number of not macthed genes ") +
+  coord_cartesian(ylim = c(0, 1)) +
   theme_minimal()
-ggsave("plot.png", p, width = 8, height = 6, dpi = 300)
+ggsave("plot_8.png", p, width = 8, height = 6, dpi = 300)
 # IRdisplay::display(p)
 
 # plotting: ggsci, ggpubr, ggplot -- recommended

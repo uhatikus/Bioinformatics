@@ -10,8 +10,8 @@ class CoxPH():
     def __init__(self, clinical_file_path: str, mutation_file_path: str, results_path: str, skip_mutations: bool = False) -> None:
         # read in the clinical data
         self.clinical_df = pd.read_csv(
-            clinical_file_path, index_col=0)
-        self.clinical_df["index_for_merge"] = self.clinical_df.index
+            clinical_file_path, index_col=9, sep=";")
+        # self.clinical_df["index_for_merge"] = self.clinical_df.index
 
         self.skip_mutations = skip_mutations
 
@@ -58,7 +58,7 @@ class CoxPH():
         # specify gender: male = 1, female = 2
         if 'gender' in covariats:
             preprocessed_clinical_data['gender'] = preprocessed_clinical_data["gender"].apply(
-                lambda x: 1 if x == 'male' else 2)
+                lambda x: 1 if x == 'MALE' else 2)
 
         # specify race: white = 0, other = 1
         if 'race' in covariats:
@@ -80,7 +80,7 @@ class CoxPH():
 
         # Select relevant columns for analysis
         selected_columns = ['vital_status',
-                            'duration_col', 'index_for_merge'] + covariats
+                            'duration_col'] + covariats
 
         preprocessed_clinical_data = preprocessed_clinical_data[selected_columns]
 
@@ -115,7 +115,7 @@ class CoxPH():
 
         return cur_mutation_df
 
-    def plot_survival_function(self, data: pd.DataFrame, target_column: str, options: list[(str, any)]):
+    def plot_survival_function(self, data: pd.DataFrame, target_column: str, options: list[(str, any)], cutoff: str = ""):
         kmf = KaplanMeierFitter()
 
         T = data["duration_col"]
@@ -140,7 +140,8 @@ class CoxPH():
         ax.set_ylabel('Survival Probability')
         plt.title(f'Survival Function for {target_column}')
 
-        fig.savefig(self.results_path+f'survival_function_{target_column}.png')
+        fig.savefig(self.results_path +
+                    f'survival_function_{target_column}_{cutoff}.png')
 
     def analize_gene(self, gene: str, covariats: list[str], plot_flag: bool = False):
         clean_clinical_data = self.preprocess_clinical_data_using_covariats(
@@ -345,6 +346,34 @@ class CoxPH():
 
         self.plot_survival_function(cur_data, target_column="group_1", options=[
             (1, f"in group"), (0, f"Not in group")])
+        # print(f"bad genes: {bad_genes}")
+
+    def analyze_by_two_defined_groups(self, group1: list[str], group2: list[str], cutoff: str, covariats: list[str] = None):
+        covariats = self.valid_covariats(covariats)
+        cur_data = self.preprocess_clinical_data_using_covariats(
+            covariats)
+
+        cur_data['group'] = (1) * cur_data.index.isin(group1).astype(
+            int) + (-1) * cur_data.index.isin(group2).astype(int)
+
+        # cur_data['group2'] = cur_data.index.isin(group2).astype(int)
+
+        cur_data.dropna(inplace=True)
+        # cur_data.drop(columns=["index_for_merge"], inplace=True)
+
+        # print(cur_data['duration_col'])
+        # print(cur_data['vital_status'])
+        # print(cur_data['group'])
+        # print(cur_data.columns)
+        cph = CoxPHFitter()
+        cph.fit(cur_data, duration_col='duration_col',
+                event_col='vital_status')
+
+        cph.summary.to_csv(self.results_path +
+                           f"matched_vs_unmatched_"+cutoff+".csv")
+
+        self.plot_survival_function(cur_data, target_column="group", options=[
+            (-1, f"unmatched"), (1, f"matched"), (0, f"others")], cutoff=cutoff)
         # print(f"bad genes: {bad_genes}")
 
 

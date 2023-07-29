@@ -1,6 +1,6 @@
 from coxph import CoxPH
 
-root_folder = 'coxph/'
+root_folder = ''
 
 
 def test_one_gene(gene):
@@ -94,9 +94,32 @@ def skcm_analysis():
         "gender", 'years_to_birth'])  # , 'stage', 'grade'
 
 
+def lgg_gene_expression():
+    coxph = CoxPH(clinical_file_path=f'{root_folder}data/lgg_2/tcga_lgg_data.csv',
+                  mutation_file_path=f'...',
+                  results_path=f'{root_folder}results/lgg_2_results_res_MT_Progress/', skip_mutations=True)
+    # print(coxph.clinical_df.columns)
+    for cutoff_n in [0.6, 0.65, 0.7, 0.75, 0.8, 0.85]:
+        cutoff = str(cutoff_n)
+        print(cutoff)
+        with open(f'{root_folder}given_files/lgg_matched_cutoff_res_MT_Progress {cutoff} .txt', 'r') as file:
+            people_matched = [gene.strip() for gene in file.readlines()]
+
+        with open(f'{root_folder}given_files/lgg_unmatched_cutoff_res_MT_Progress {cutoff} .txt', 'r') as file:
+            people_unmatched = [gene.strip() for gene in file.readlines()]
+
+        coxph.clinical_df["vital_status"] = coxph.clinical_df["vital_status"].replace({
+            'Alive': 1, 'Dead': 0})
+        coxph.clinical_df["vital_status"] = coxph.clinical_df["vital_status"].replace({
+            'Alive': 1, 'Dead': 0})
+        coxph.analyze_by_two_defined_groups(group1=people_matched, group2=people_unmatched, covariats=[
+            "gender"], cutoff=cutoff)  # , 'stage', 'grade'
+
+
 if __name__ == "__main__":
     print("let's start")
-    skcm_analysis()
+    lgg_gene_expression()
+    # skcm_analysis()
 
 
 # updated TODO:

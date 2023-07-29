@@ -1,3 +1,6 @@
 *.DS_Store
 
 coxph/data/skcm/skcm_mutation_with_rows.csv
+
+*.RData
+*.Rhistory
