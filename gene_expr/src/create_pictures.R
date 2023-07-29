@@ -20,12 +20,12 @@ hist_types <- c("Oligodendroglioma", "Astrocytoma", "Oligoastrocytoma")
 # oligoastrocytomas as grade II (low-grade) or grade III (anaplastic)
 cutoff_values <- seq(0.5, 0.8, 0.01)
 
-tcga_data_init <- read.table("tcga_lgg_data.txt", header = TRUE, sep = "\t")
+tcga_data_init <- read.table("data/tcga_lgg_data.txt", header = TRUE, sep = "\t")
 
 
 prepare_diff_exp_vec_and_tcga_data_vec <- function(tcga_data, sheet) {
-  gene_list <- unlist(as.list(read_excel("gene_list.xlsx", col_names = FALSE, sheet = sheet)))
-  diff_exp_data <- read_excel("expression_data.xlsx", col_names = TRUE, sheet = sheet)
+  gene_list <- unlist(as.list(read_excel("data/gene_list.xlsx", col_names = FALSE, sheet = sheet)))
+  diff_exp_data <- read_excel("data/expression_data.xlsx", col_names = TRUE, sheet = sheet)
   
   diff_exp_data <- diff_exp_data[!is.na(diff_exp_data[, 1]), ]
   diff_exp_data <- diff_exp_data[!is.na(diff_exp_data[, 2]), ]
@@ -149,7 +149,6 @@ sort_patients_by_cutoff <- function(exp_vec, d_exp){
   errors_d_exp <- errors_d_exp[right_order, ]
   sorted_d_exp <- d_exp[right_order, ]
   return(list(errors_d_exp, sorted_d_exp))
-  
 }
 
 prepare_data <- function(tcga_data, cutoff_value){
@@ -216,7 +215,6 @@ for (sheet in all_sheets) {
     surv_plot <- ggsurvplot(survfit(Surv(time, alive) ~ group, data=tcga_data_for_coxph),
                      legend.title = "",
                      legend.labs = c("Matched", "Unmatched"),
-                     #title = paste0("Survival analysis with cutoff value = ", best_cutoff_value, ", p_value = ", signif(best_p_value, 3)),
                      ggtheme = theme_classic(), palette = c("#00A7E1", "#F17720"))
     #print(surv_plot)
     coeff <- max(n_patient)
@@ -262,19 +260,20 @@ for (sheet in all_sheets) {
     
     #print(combined_plot)
     if (sheet == "res_MT_Progress.csv"){
-      ggsave(paste0(sheet, "_", hist_type, ".png"), combined_plot, width = 25, height = 26, dpi = 300)
+      ggsave(paste0("plots/results/", sheet, "_", hist_type, ".png"), combined_plot, width = 25, height = 26, dpi = 300)
     }else{
-      ggsave(paste0(sheet, "_", hist_type, ".png"), combined_plot, width = 18, height = 26, dpi = 300)
+      ggsave(paste0("plots/results/", sheet, "_", hist_type, ".png"), combined_plot, width = 18, height = 26, dpi = 300)
     }
     #plot_erros_d_exp(errors_d_exp, sheet)
-    
+    break
   }
+  break
 }
 
 
 
 # TODO:
-# 1. Combine 2 datasets (plot just CGG - to check) (median - for eachh dataset different)
+# 1. Combine 2 datasets (plot just CGG - to check) (median - for each dataset different)
 # 2. Ось cutoff  0.0 -> 0.8
 # 3. пунктиры к нижней части панели
 # 4. E <-> D
