@@ -1,0 +1,120 @@
+---
+title: "Ovarian Cancer Analysis R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code.
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*.
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+# Ovarian Cancer Analysis
+
+### Imports
+
+```{r}
+library(data.table)
+```
+
+### Data Preparation
+
+```{r}
+mrna_seq <- fread("data/data_mrna_seq_v2_rsem.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE, data.table = FALSE)
+mrna_seq
+
+```
+
+```{r}
+mrna_seq <- mrna_seq[, !names(mrna_seq) %in% c("Entrez_Gene_Id")]
+mrna_seq <- mrna_seq[!duplicated(mrna_seq$Hugo_Symbol) & !duplicated(mrna_seq$Hugo_Symbol, fromLast = TRUE), ]
+mrna_seq <- mrna_seq[complete.cases(mrna_seq), ]
+rownames(mrna_seq) = mrna_seq$Hugo_Symbol
+mrna_seq <- mrna_seq[, !names(mrna_seq) %in% c("Hugo_Symbol")]
+mrna_seq
+```
+
+```{r}
+affymetrix_microarray <- fread("data/data_mrna_affymetrix_microarray.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE, data.table = FALSE)
+affymetrix_microarray
+```
+
+```{r}
+affymetrix_microarray <- affymetrix_microarray[!duplicated(affymetrix_microarray$Hugo_Symbol) & !duplicated(affymetrix_microarray$Hugo_Symbol, fromLast = TRUE), ]
+rownames(affymetrix_microarray) = affymetrix_microarray$Hugo_Symbol
+affymetrix_microarray <- affymetrix_microarray[-c(1), !names(affymetrix_microarray) %in% c("Entrez_Gene_Id", "Hugo_Symbol")]
+new_column_names <- gsub("\\.01$", "", names(affymetrix_microarray))  # Remove .01 from column names
+new_column_names <- gsub("\\.", "-", new_column_names)  # Replace . with -
+names(affymetrix_microarray) <- new_column_names
+affymetrix_microarray
+```
+
+```{r}
+agilent_microarray <- fread("data/data_mrna_agilent_microarray.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE, data.table = FALSE)
+agilent_microarray
+```
+
+```{r}
+agilent_microarray <- agilent_microarray[!duplicated(agilent_microarray$Hugo_Symbol) & !duplicated(agilent_microarray$Hugo_Symbol, fromLast = TRUE), ]
+rownames(agilent_microarray) = agilent_microarray$Hugo_Symbol
+agilent_microarray <- agilent_microarray[-c(1), !names(agilent_microarray) %in% c("Entrez_Gene_Id", "Hugo_Symbol")]
+new_column_names <- gsub("\\.01$", "", names(agilent_microarray))  # Remove .01 from column names
+new_column_names <- gsub("\\.", "-", new_column_names)  # Replace . with -
+names(agilent_microarray) <- new_column_names
+agilent_microarray
+```
+
+```{r}
+clinical_patient <- fread("data/data_clinical_patient.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE, data.table = FALSE)
+clinical_patient
+```
+
+```{r}
+rownames(clinical_patient) = clinical_patient$PATIENT_ID
+clinical_patient <- clinical_patient[, !names(clinical_patient) %in% c("PATIENT_ID", "OTHER_PATIENT_ID", "FORM_COMPLETION_DATE", "PROSPECTIVE_COLLECTION", "RETROSPECTIVE_COLLECTION", "JEWISH_RELIGION_HERITAGE_INDICATOR", "ETHNICITY", "HISTORY_OTHER_MALIGNANCY", "HISTORY_NEOADJUVANT_TRTYN", "METHOD_OF_INITIAL_SAMPLE_PROCUREMENT", "METHOD_OF_INITIAL_SAMPLE_PROCUREMENT_OTHER", "RESIDUAL_TUMOR", "VASCULAR_INVASION_INDICATOR", "LYMPHOVASCULAR_INVASION_INDICATOR", "KARNOFSKY_PERFORMANCE_SCORE", "ECOG_SCORE", "PERFORMANCE_STATUS_TIMING", "RADIATION_TREATMENT_ADJUVANT", "PHARMACEUTICAL_TX_ADJUVANT", "TREATMENT_OUTCOME_FIRST_COURSE", "DAYS_TO_TUMOR_PROGRESSION", "NEW_TUMOR_EVENT_AFTER_INITIAL_TREATMENT", "CLIN_M_STAGE", "CLIN_N_STAGE", "CLIN_T_STAGE", "DAYS_TO_PATIENT_PROGRESSION_FREE", "DISEASE_CODE", "EXTRANODAL_INVOLVEMENT", "INFORMED_CONSENT_VERIFIED", "PATH_M_STAGE", "PATH_N_STAGE", "PATH_T_STAGE", "AJCC_PATHOLOGIC_TUMOR_STAGE", "PROJECT_CODE", "STAGE_OTHER", "AJCC_STAGING_EDITION", "PROJECT_CODE", "STAGE_OTHER", "AJCC_STAGING_EDITION")]
+clinical_patient
+```
+
+# Analysis
+
+```{r}
+target_ganes <- c("TLR4", "BSCL2", "CDH1", "ERBB2", "SCGB2A1")
+mrna_seq_target_genes <- mrna_seq[rownames(mrna_seq) %in% target_ganes, ]
+mrna_seq_target_genes
+```
+
+```{r}
+affymetrix_microarray_target_genes <- affymetrix_microarray[rownames(affymetrix_microarray) %in% target_ganes, ]
+affymetrix_microarray_target_genes
+```
+
+```{r}
+agilent_microarray_target_genes <- agilent_microarray[rownames(agilent_microarray) %in% target_ganes, ]
+agilent_microarray_target_genes
+```
+
+##### 1. Find mean/median/quantile of expression for gene
+
+##### 2. Higher than mean -\> 1, less than mean -\> 0
+
+##### 3. Order people by specific patter for target_genes
+
+##### 4. Observe that order is different depending on the gene_expression method
+
+Final result:
+
+pattern expression -\> order people by the similarity to the pattern.
+
+(SVD: <https://web.cs.ucdavis.edu/~bai/ECS130/References/EldenChap10.pdf>)
+
+<https://pubmed.ncbi.nlm.nih.gov/23029298/>
+
+##### Patient expression -\> top-5 most likely patterns -\> pattern (in specific gene) probabbility of higher expression.
+
+#### Anyone did it? -\> research
+
+HFE test in GBM
