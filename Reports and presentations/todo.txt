@@ -1,0 +1,10 @@
+1. R package in github (private repository -> public after release)
+2. devtools to intstall package from github (intstall_github)
+3. benchmarks + tutorial readme
+
+https://bioconductor.org/packages/release/bioc/html/phantasus.html
+https://github.com/na89/DNAdiscover
+https://github.com/alexloboda/SVDFunctions
+dnascore.net
+
+https://tinyheero.github.io/jekyll/update/2015/07/26/making-your-first-R-package.html
