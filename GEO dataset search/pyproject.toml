@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "geosearch"
+version = "0.1.0"
+description = ""
+authors = ["Ukhatov Alexander <alexander.ukhatov@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.10"
+selenium = "^4.19.0"
+chromedriver-py = "^122.0.6261.128"
+bs4 = "^0.0.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
